@@ -14,6 +14,14 @@ The agent analyzes tasks using two tools:
 pip install -r requirements.txt
 python agents/risk_deadline.py
 
+## Orchestrator (Basic)
+Located in `orchestrator/orchestrator.py`. Coordinates agent execution — currently runs the Risk & Deadline agent across all tasks and compiles a combined report. Structured to add more agents (Resource Usage, Budget Tracking, Task Allocation) as they're built.
+
+### How to run
+```
+python orchestrator/orchestrator.py
+```
+
 ### Sample output
 The agent correctly identifies a task as `high_risk` when its dependency task is behind schedule, and `on_track` otherwise — with a confidence score and reasoning for each.
 
