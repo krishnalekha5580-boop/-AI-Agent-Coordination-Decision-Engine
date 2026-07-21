@@ -1,0 +1,17 @@
+=== Orchestrator Report ===
+
+[risk_deadline] T1
+  Planned steps: ['calculate_days_remaining', 'assess_progress_risk']
+  VERIFIED Finding: high_risk
+  Tool outputs: {'calculate_days_remaining': '-14', 'check_dependency_status': 'No dependency issues', 'assess_progress_risk': 'high_risk: deadline has passed or is today'}
+  User-facing response: [HIGH RISK] Task T1 needs attention.
+
+[risk_deadline] T2
+  Planned steps: ['calculate_days_remaining', 'check_dependency_status', 'assess_progress_risk']
+  VERIFIED Finding: high_risk
+  Tool outputs: {'calculate_days_remaining': '-12', 'check_dependency_status': 'Dependency T1 is behind schedule', 'assess_progress_risk': 'high_risk: deadline has passed or is today'}
+  User-facing response: [HIGH RISK] Task T2 needs attention. (Dependency T1 is behind schedule)
+
+=== Memory: recent findings stored ===
+  T1: high_risk
+  T2: high_risk

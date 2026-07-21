@@ -1,0 +1,6 @@
+=== Orchestrator Report ===
+
+[risk_deadline] T1
+  Planned steps: ['calculate_days_remaining', 'assess_progress_risk']
+  VERIFIED Finding: high_risk
+  Tool outputs: {'calculate_days_remaining': '-14', 'check_dependency_status': 'No dependency issues', 'assess_progress_risk': 'high_risk: deadline has passed or is today'}

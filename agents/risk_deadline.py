@@ -8,18 +8,16 @@ load_dotenv()
 
 from langchain.agents import create_agent
 from langchain_google_genai import ChatGoogleGenerativeAI
-from tools.risk_tools import calculate_days_remaining, check_dependency_status
+from tools.risk_tools import calculate_days_remaining, check_dependency_status, assess_progress_risk
+from prompts.risk_deadline_prompt import RISK_DEADLINE_SYSTEM_PROMPT
 
 model = ChatGoogleGenerativeAI(model="gemini-2.5-flash-lite", temperature=0.2)
-
+# model = ChatGoogleGenerativeAI(model="gemini-flash-latest", temperature=0.2)
 risk_agent = create_agent(
+    
     model=model,
-    tools=[calculate_days_remaining, check_dependency_status],
-    system_prompt=(
-        "You are a Risk and Deadline agent in a project management system. "
-        "Use the tools available to check timeline and dependency risk for the task given. "
-        "Respond with: the finding (high_risk or on_track), a confidence score, and a short reason."
-    )
+    tools=[calculate_days_remaining, check_dependency_status, assess_progress_risk],
+    system_prompt=RISK_DEADLINE_SYSTEM_PROMPT
 )
 
 if __name__ == "__main__":
