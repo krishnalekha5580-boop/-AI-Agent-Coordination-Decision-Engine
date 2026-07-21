@@ -1,6 +1,9 @@
 {
   "tasks": [
-    {"id": "T1", "name": "API integration", "progress_pct": 40, "planned_end": "2026-07-08", "depends_on": []},
-    {"id": "T2", "name": "UI testing", "progress_pct": 0, "planned_end": "2026-07-10", "depends_on": ["T1"]}
+    {"id": "T1", "name": "API integration", "progress_pct": 40, "planned_end": "2026-07-08", "depends_on": [], "assigned_to": "Riya"},
+    {"id": "T2", "name": "UI testing", "progress_pct": 0, "planned_end": "2026-07-10", "depends_on": ["T1"], "assigned_to": "Riya"}
+  ],
+  "team": [
+    {"name": "Riya", "capacity_hrs_week": 40, "logged_hrs_week": 46}
   ]
 }
