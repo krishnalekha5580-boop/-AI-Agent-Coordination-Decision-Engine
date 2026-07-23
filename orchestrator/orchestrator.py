@@ -198,7 +198,7 @@ def orchestrate(project_data):
     return all_findings, conflicts
 
 if __name__ == "__main__":
-    with open("data/sample_project.json") as f:
+    with open("data/sample_project_2.json") as f:
         project_data = json.load(f)
 
     results, conflicts = orchestrate(project_data)
@@ -225,6 +225,6 @@ if __name__ == "__main__":
     if conflicts:
         for c in conflicts:
             print(f"  {c['issue']}")
-            print(f"  → {c['recommendation']}\n")
+            print(f"  -> {c['recommendation']}\n")
     else:
         print("  No conflicts detected.")
