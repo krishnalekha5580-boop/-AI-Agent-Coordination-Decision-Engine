@@ -7,5 +7,10 @@
   "team": [
     {"name": "Riya", "capacity_hrs_week": 40, "logged_hrs_week": 46},
     {"name": "Arjun", "capacity_hrs_week": 40, "logged_hrs_week": 30}
-  ]
+  ],
+  "budget": {
+    "planned_spend": 50000,
+    "actual_spend": 41000,
+    "pct_time_elapsed": 85
+  }
 }
