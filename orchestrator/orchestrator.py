@@ -7,19 +7,31 @@ from tools.risk_tools import calculate_days_remaining, check_dependency_status, 
 from tools.resource_tools import calculate_utilization
 from tools.budget_tools import check_budget_status, check_threshold_alerts
 from tools.allocation_tools import recommend_assignee
+from db.session import init_db
+from db.repository import save_finding, get_recent_findings as db_get_recent_findings
 
 class SimpleMessage:
     def __init__(self, content):
         self.content = content
 
 # ---------- MEMORY ----------
-past_findings = []
+# ---------- MEMORY (now persistent via database) ----------
+init_db()  # creates tables if they don't exist yet, safe to call every run
 
-def store_finding(finding):
-    past_findings.append(finding)
+def store_finding(finding, project_id):
+    """Persist a finding to the database instead of an in-memory list."""
+    target = finding.get("task_id") or finding.get("member") or "unknown"
+    save_finding(
+        project_id=project_id,
+        agent_name=finding["agent"],
+        target=target,
+        finding=finding["finding"],
+        details={"user_response": finding.get("user_response", "")}
+    )
 
-def get_recent_findings(n=3):
-    return past_findings[-n:]
+def get_recent_findings(project_id, n=5):
+    """Pull real historical findings back from the database."""
+    return db_get_recent_findings(project_id, limit=n)
 
 # ---------- PLANNING MODULE ----------
 def plan_analysis_steps(task):
@@ -69,7 +81,7 @@ def make_mock_allocation_response(candidates):
 
 
 # ---------- MAIN AGENT RUNNER ----------
-def run_risk_agent(project_data):
+def run_risk_agent(project_data, project_id):
     findings = []
     use_mock = os.getenv("USE_MOCK_AGENT", "0") == "1"
 
@@ -107,8 +119,7 @@ def run_risk_agent(project_data):
             days_remaining = 0
 
         dependency_result = tool_outputs.get("check_dependency_status", "").lower()
-        dependency_issue = "behind schedule" in dependency_result
-
+        dependency_issue = "dependency issues" in dependency_result 
         assess_result = tool_outputs.get("assess_progress_risk", "").lower()
         if assess_result.startswith("high_risk"):
             real_finding = "high_risk"
@@ -133,7 +144,7 @@ def run_risk_agent(project_data):
         }
 
         # MEMORY: store this finding for future recall
-        store_finding(finding_record)
+        store_finding(finding_record, project_id)
         findings.append(finding_record)
 
     return findings
@@ -150,7 +161,7 @@ def make_mock_resource_response(member):
         ]
     }
 
-def run_resource_agent(project_data):
+def run_resource_agent(project_data, project_id):
     findings = []
     use_mock = os.getenv("USE_MOCK_AGENT", "0") == "1"
     for member in project_data.get("team", []):
@@ -176,13 +187,15 @@ def run_resource_agent(project_data):
         else:
             finding = "available"
 
-        findings.append({
+        finding_record = {
             "agent": "resource_usage",
             "member": member["name"],
             "finding": finding,
             "raw_tool_outputs": tool_outputs,
             "user_response": f"{'⚠️' if finding == 'overloaded' else '✅'} {member['name']} is {finding} ({util_result})".replace("⚠️", "[OVERLOADED]").replace("✅", "[OK]")
-        })
+        }
+        store_finding(finding_record, project_id)
+        findings.append(finding_record)
     return findings
 
 def make_mock_budget_response(budget):
@@ -205,7 +218,7 @@ def make_mock_budget_response(budget):
             SimpleMessage(content=llm_text),
         ]
     }
-def run_budget_agent(project_data):
+def run_budget_agent(project_data, project_id):
     findings = []
     budget = project_data.get("budget")
     if not budget:
@@ -236,13 +249,15 @@ def run_budget_agent(project_data):
     alert_note = f" | {alert}" if alert.startswith(("ALERT", "WARNING")) else ""
 
     label = finding.replace("_", " ").upper()
-    findings.append({
+    finding_record = {
         "agent": "budget_tracking",
         "member": "Overall Project",
         "finding": finding,
         "raw_tool_outputs": tool_outputs,
         "user_response": f"[{label}] Project spend: {result}{alert_note}"
-    })
+    }
+    store_finding(finding_record, project_id)
+    findings.append(finding_record)
     return findings
 
 def get_reassignment_suggestion(project_data, exclude_person=None):
@@ -311,19 +326,21 @@ def resolve_conflicts(all_findings, project_data):
             })
     return conflicts
     
-def orchestrate(project_data):
+def orchestrate(project_data, project_id):
     all_findings = []
-    all_findings.extend(run_risk_agent(project_data))
-    all_findings.extend(run_resource_agent(project_data))
-    all_findings.extend(run_budget_agent(project_data))
+    all_findings.extend(run_risk_agent(project_data, project_id))
+    all_findings.extend(run_resource_agent(project_data, project_id))
+    all_findings.extend(run_budget_agent(project_data, project_id))
     conflicts = resolve_conflicts(all_findings, project_data)
     return all_findings, conflicts
-
 if __name__ == "__main__":
-    with open("data/sample_project_2.json") as f:
+    from db.repository import get_or_create_project
+
+    with open("data/sample_project.json") as f:
         project_data = json.load(f)
 
-    results, conflicts = orchestrate(project_data)
+    project_id = get_or_create_project("Demo Run")
+    results, conflicts = orchestrate(project_data, project_id)
 
     print("=== Orchestrator Report ===\n")
     for r in results:
@@ -338,10 +355,9 @@ if __name__ == "__main__":
         print(f"  User-facing response: {r['user_response']}")
         print()
 
-    print("=== Memory: recent findings stored ===")
-    for f in get_recent_findings():
-        identifier = f.get("task_id") or f.get("member") or "unknown"
-        print(f"  {identifier}: {f['finding']}")
+    print("=== Memory: recent findings stored (from database) ===")
+    for f in get_recent_findings(project_id):
+        print(f"  [{f['agent_name']}] {f['target']}: {f['finding']} (saved at {f['created_at']})")
 
     print("\n=== Decision Engine: Conflicts & Recommendations ===")
     if conflicts:
