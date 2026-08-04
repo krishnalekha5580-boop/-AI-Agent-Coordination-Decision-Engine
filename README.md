@@ -50,10 +50,32 @@ Verified against two datasets to confirm the logic is genuinely conditional, not
 
 ## Frontend
 
-A Streamlit web interface (`app.py`) provides an interactive way to run the whole system without touching code or the terminal:
-- **Three data input options:** upload a JSON file, use existing sample datasets, or enter tasks/team/budget manually through a form
-- **Mock mode toggle** in the sidebar — run instantly with zero API calls, or switch to live LLM calls
-- **Results view:** three color-coded columns (Risk, Resource, Budget findings), followed by the Decision Engine's conflict recommendations
+A full Streamlit web application (`app.py`) providing a real client workflow, not just a demo form — create a project, manage its data, run analysis, and review history, all backed by a persistent database.
+
+### Navigation
+Sidebar-driven, multi-page layout (Overview, Tasks, Team, Budget, Run Analysis, History) instead of a single long scrolling page — each section loads independently.
+
+### Project Management
+- **Create new project** or **open an existing one** from the sidebar, both backed by the database
+- Opening a project immediately shows a summary dashboard: task count, team size, budget status (✅ On Budget / 🟡 At Risk / ⚠️ Over Budget), and timestamp of the last analysis run
+- Switching to "Create new" correctly clears any previously active project, avoiding stale data
+
+### Data Management (full CRUD)
+- **Tasks** and **Team Members** support create, view, **edit, and delete** — not just add-only. Editing opens a pre-filled inline form; changes save directly to the database
+- **Budget** is edited in place, pre-filled with current values
+- All data is persisted via SQLite (`db/`), so it survives across sessions — not lost when the app restarts
+
+### Validation
+The Overview page checks data integrity and surfaces warnings for:
+- Tasks assigned to a team member who isn't in the project's team list
+- Tasks that depend on a task ID that doesn't exist in the project
+
+### Analysis & Results
+- **Run Analysis** pulls current tasks, team, and budget directly from the database (not hardcoded), runs all four agents plus the Decision Engine, and displays results in three color-coded columns (Risk, Resource, Budget) followed by conflict recommendations
+- **History** page shows past findings for the project, pulled from the database with real timestamps — proof that Memory is genuinely persistent, not reset on every run
+
+### Visual Design
+Branded header, styled metrics, and colored status indicators instead of default Streamlit styling.
 
 Run with:
 ```bash
@@ -67,6 +89,16 @@ streamlit run app.py
 - **Dual LLM providers:** built on Gemini initially; added Groq as a second, independent provider after repeatedly hitting Gemini's free-tier daily quota (20 requests/day) during iterative testing. This means testing/demoing isn't dependent on a single provider's availability.
 - **Error handling:** all tools handle invalid input (bad dates, zero-division, missing task IDs) gracefully via try/except instead of crashing.
 - **Retry logic:** `max_retries` configured on LLM clients to recover from temporary server issues.
+
+## Database (Persistent Memory)
+
+Findings, projects, tasks, team members, and budget entries are stored in a real SQLite database (`db/`), not an in-memory list — this closes a real gap identified against the original problem statement, which called for "short-term and long-term memory systems."
+
+- **`db/models.py`** — SQLAlchemy schema: `Project`, `TeamMember`, `Task`, `BudgetEntry`, `Finding`, with proper foreign-key relationships
+- **`db/session.py`** — engine/session setup (SQLite, zero external setup required; swappable to Postgres via a single `DATABASE_URL` change)
+- **`db/repository.py`** — clean data-access layer; all reads/writes go through here, keeping field shapes consistent with what the tools expect
+
+Verified persistence by running the orchestrator twice in separate executions and confirming findings from both runs (with distinct timestamps) were retrievable — proof memory survives across sessions, not just within a single script run.
 
 ## How to Run
 
@@ -105,35 +137,38 @@ Task T1 is high-risk, but Riya is already overloaded (115% utilized - overloaded
 - Streamlit
 
 ## Project Structure
-
+```
 pm-decision-engine/
 ├── agents/
-│ ├── risk_deadline.py
-│ ├── resource_usage.py
-│ ├── budget_tracking.py
-│ └── task_allocation.py
+│   ├── risk_deadline.py
+│   ├── resource_usage.py
+│   ├── budget_tracking.py
+│   └── task_allocation.py
 ├── tools/
-│ ├── risk_tools.py
-│ ├── resource_tools.py
-│ ├── budget_tools.py
-│ └── allocation_tools.py
+│   ├── risk_tools.py
+│   ├── resource_tools.py
+│   ├── budget_tools.py
+│   └── allocation_tools.py
 ├── prompts/
-│ ├── risk_deadline_prompt.py
-│ ├── budget_prompt.py
-│ └── allocation_prompt.py
+│   ├── risk_deadline_prompt.py
+│   ├── budget_prompt.py
+│   └── allocation_prompt.py
 ├── orchestrator/
-│ └── orchestrator.py
+│   └── orchestrator.py
+├── db/
+│   ├── models.py
+│   ├── session.py
+│   └── repository.py
 ├── data/
-│ ├── sample_project.json
-│ └── sample_project_2.json
+│   ├── sample_project.json
+│   └── sample_project_2.json
 ├── app.py
 ├── test_agents.py
 ├── requirements.txt
 └── README.md
-
-
+```
 ## Upcoming
-- Persistent memory (currently resets each run - next step is writing findings to a file or lightweight database)
+- User authentication and per-user project isolation (currently single-user, no access control)
 - REST API layer (FastAPI) to satisfy the "Enterprise API Layer" outcome
-- Multi-project support
-- Real external integrations (Jira, Slack, Calendar) instead of local/manual data entry
+- Multi-project comparison and portfolio-level views
+- Real external integrations (Jira, Slack, Calendar) instead of manual data entry
