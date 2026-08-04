@@ -10,17 +10,28 @@ def calculate_days_remaining(planned_end: str) -> int:
     except ValueError:
         return -999  # sentinel for invalid date
 def check_dependency_status(task_id: str, all_tasks: List[Dict[str, Any]]) -> str:
-    """Check if a task's dependencies are behind schedule."""
+    """Check if a task's dependencies are behind schedule or overdue."""
     try:
         task = next((t for t in all_tasks if t.get("id") == task_id), None)
         if task is None:
             return "Could not verify dependencies - task not found in provided list"
+
+        issues = []
         for dep_id in task.get("depends_on", []):
             dep = next((t for t in all_tasks if t.get("id") == dep_id), None)
             if dep is None:
                 continue
-            if dep.get("progress_pct", 100) < 70:
-                return f"Dependency {dep_id} is behind schedule"
+
+            dep_days = calculate_days_remaining(dep.get("planned_end", ""))
+            dep_progress = dep.get("progress_pct", 100)
+
+            if dep_days <= 0 and dep_progress < 100:
+                issues.append(f"{dep_id} is overdue and incomplete ({dep_progress}% done)")
+            elif dep_progress < 70:
+                issues.append(f"{dep_id} is behind schedule ({dep_progress}% done)")
+
+        if issues:
+            return "Dependency issues: " + "; ".join(issues)
         return "No dependency issues"
     except Exception as e:
         return f"Error checking dependency status: {str(e)}"

@@ -4,14 +4,14 @@ from dotenv import load_dotenv
 load_dotenv()
 from langchain.agents import create_agent
 from langchain_groq import ChatGroq
-from tools.budget_tools import check_budget_status
+from tools.budget_tools import check_budget_status, check_threshold_alerts
 from prompts.budget_prompt import BUDGET_SYSTEM_PROMPT
 
 model = ChatGroq(model="llama-3.3-70b-versatile", temperature=0.2)
 
 budget_agent = create_agent(
     model=model,
-    tools=[check_budget_status],
+    tools=[check_budget_status, check_threshold_alerts],
     system_prompt=BUDGET_SYSTEM_PROMPT
 )
 
