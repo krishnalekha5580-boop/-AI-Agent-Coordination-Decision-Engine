@@ -56,8 +56,7 @@ st.sidebar.subheader("Project")
 existing_projects = list_projects()
 project_names = {p["name"]: p["id"] for p in existing_projects}
 
-action = st.sidebar.radio("", ["Open existing", "Create new"], label_visibility="collapsed")
-
+action = st.sidebar.radio("Action", ["Open existing", "Create new"], label_visibility="collapsed")
 if action == "Create new":
     st.session_state.pop("active_project_id", None)
     st.session_state.pop("active_project_name", None)
@@ -291,6 +290,8 @@ elif page == "Run Analysis":
             with st.spinner("Agents analyzing project..."):
                 results, conflicts = orchestrate(project_data, active_id)
 
+            st.session_state["last_results"] = results  # moved here, right after results exists
+
             st.markdown("### Results")
             col1, col2, col3 = st.columns(3)
             with col1:
@@ -319,7 +320,13 @@ elif page == "Run Analysis":
 
 # ---------- HISTORY ----------
 elif page == "History":
-    st.subheader("Analysis History")
+    st.subheader("Short-Term Memory (this session)")
+    if "last_results" in st.session_state:
+        st.table(st.session_state["last_results"])
+    else:
+        st.info("Run an analysis this session to see short-term memory.")
+
+    st.subheader("Long-Term Memory (full project history)")
     history = get_recent_findings(active_id, limit=20)
     if history:
         st.table(history)

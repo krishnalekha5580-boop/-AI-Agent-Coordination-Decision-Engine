@@ -85,5 +85,6 @@ class Finding(Base):
     finding = Column(String, nullable=False)
     details = Column(JSON, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow)
+    memory_type = Column(String, default="long_term")  # "short_term" = current session, "long_term" = full history
 
     project = relationship("Project", back_populates="findings")
