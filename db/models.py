@@ -24,7 +24,8 @@ class Project(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
-
+    start_date = Column(String, nullable=True)  # "YYYY-MM-DD"
+    end_date = Column(String, nullable=True)  # "YYYY-MM-DD"
     team_members = relationship("TeamMember", back_populates="project", cascade="all, delete-orphan")
     tasks = relationship("Task", back_populates="project", cascade="all, delete-orphan")
     budget_entries = relationship("BudgetEntry", back_populates="project", cascade="all, delete-orphan")

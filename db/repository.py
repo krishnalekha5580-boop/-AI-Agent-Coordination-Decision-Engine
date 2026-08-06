@@ -13,11 +13,10 @@ from db.models import Project, TeamMember, Task, BudgetEntry, Finding
 
 
 # ---------- Projects ----------
-
-def create_project(name: str) -> int:
+def create_project(name: str, start_date: str = None, end_date: str = None) -> int:
     session = get_session()
     try:
-        project = Project(name=name)
+        project = Project(name=name, start_date=start_date, end_date=end_date)
         session.add(project)
         session.commit()
         return project.id
@@ -29,10 +28,35 @@ def list_projects() -> List[Dict[str, Any]]:
     session = get_session()
     try:
         projects = session.query(Project).order_by(Project.created_at.desc()).all()
-        return [{"id": p.id, "name": p.name, "created_at": p.created_at} for p in projects]
+        return [
+            {"id": p.id, "name": p.name, "created_at": p.created_at,
+             "start_date": p.start_date, "end_date": p.end_date}
+            for p in projects
+        ]
     finally:
         session.close()
 
+
+def get_project_dates(project_id: int) -> Optional[Dict[str, str]]:
+    session = get_session()
+    try:
+        project = session.query(Project).filter_by(id=project_id).first()
+        if not project:
+            return None
+        return {"start_date": project.start_date, "end_date": project.end_date}
+    finally:
+        session.close()
+
+def update_project_dates(project_id: int, start_date: str, end_date: str):
+    session = get_session()
+    try:
+        project = session.query(Project).filter_by(id=project_id).first()
+        if project:
+            project.start_date = start_date
+            project.end_date = end_date
+            session.commit()
+    finally:
+        session.close()
 
 # ---------- Team Members ----------
 

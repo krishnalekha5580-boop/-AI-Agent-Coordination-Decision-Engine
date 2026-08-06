@@ -1,3 +1,19 @@
+from datetime import datetime
+
+def calculate_pct_time_elapsed(start_date: str, end_date: str) -> float:
+    """Calculate what percentage of the project timeline has elapsed, based on real dates."""
+    try:
+        start = datetime.strptime(start_date, "%Y-%m-%d")
+        end = datetime.strptime(end_date, "%Y-%m-%d")
+        today = datetime.now()
+        total_days = (end - start).days
+        elapsed_days = (today - start).days
+        if total_days <= 0:
+            return 0.0
+        pct = (elapsed_days / total_days) * 100
+        return max(0.0, min(100.0, pct))  # clamp between 0-100
+    except (ValueError, ZeroDivisionError):
+        return 0.0
 def check_budget_status(planned_spend: float, actual_spend: float, pct_time_elapsed: float) -> str:
     """Check current budget status and project whether spend will exceed budget by project end."""
     try:

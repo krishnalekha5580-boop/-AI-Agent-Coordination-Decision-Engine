@@ -1,25 +1,8 @@
-from db.session import init_db
-from db.repository import (
-    create_project, add_task, get_tasks_with_db_id,
-    update_task, delete_task
-)
+from db.repository import get_project_dates, update_project_dates
 
-init_db()
+# Replace 1 with your actual "E-Commerce Website" project ID
+pid = 1
 
-pid = create_project("Edit Delete Test")
-add_task(pid, "T1", "Test Task", 20, "2026-09-01", [], "TestPerson")
-
-print("Before update:")
-print(get_tasks_with_db_id(pid))
-
-tasks = get_tasks_with_db_id(pid)
-db_id = tasks[0]["db_id"]
-update_task(db_id, "Updated Task Name", 55, "2026-09-15", [], "TestPerson")
-
-print("\nAfter update:")
-print(get_tasks_with_db_id(pid))
-
-delete_task(db_id)
-
-print("\nAfter delete:")
-print(get_tasks_with_db_id(pid))
+print("Before:", get_project_dates(pid))
+update_project_dates(pid, "2026-07-15", "2026-09-01")
+print("After:", get_project_dates(pid))
