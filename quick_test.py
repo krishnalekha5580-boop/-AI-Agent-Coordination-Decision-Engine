@@ -1,10 +1,7 @@
-from tools.scrum_tools import check_sprint_progress, flag_impediments
+from tools.distribution_tools import analyze_workload_distribution
 
-tasks = [
-    {"id": "T1", "progress_pct": 100, "planned_end": "2026-08-01"},
-    {"id": "T2", "progress_pct": 40, "planned_end": "2026-08-10"},
-    {"id": "T3", "progress_pct": 0, "planned_end": "2026-08-07"},
+team = [
+    {"name": "Riya", "capacity_hrs_week": 40, "logged_hrs_week": 46},
+    {"name": "Arjun", "capacity_hrs_week": 40, "logged_hrs_week": 15},
 ]
-
-print(check_sprint_progress(tasks))
-print(flag_impediments(tasks))
+print(analyze_workload_distribution(team))
