@@ -350,3 +350,34 @@ def get_recent_findings(project_id: int, limit: int = 20) -> List[Dict[str, Any]
         ]
     finally:
         session.close()
+
+def bulk_add_tasks(project_id: int, tasks: List[Dict[str, Any]]) -> int:
+    """Add multiple tasks at once from a list of dicts (e.g. from JSON/CSV upload)."""
+    count = 0
+    for t in tasks:
+        add_task(
+            project_id=project_id,
+            task_key=t.get("id") or t.get("task_key"),
+            title=t.get("name") or t.get("title"),
+            progress_pct=t.get("progress_pct", 0),
+            planned_end=t.get("planned_end"),
+            depends_on=t.get("depends_on", []),
+            assigned_to=t.get("assigned_to"),
+        )
+        count += 1
+    return count
+
+
+def bulk_add_team_members(project_id: int, members: List[Dict[str, Any]]) -> int:
+    """Add multiple team members at once from a list of dicts."""
+    count = 0
+    for m in members:
+        add_team_member(
+            project_id=project_id,
+            name=m.get("name"),
+            capacity_hrs_week=m.get("capacity_hrs_week", 40),
+            logged_hrs_week=m.get("logged_hrs_week", 0),
+            skills=m.get("skills", []),
+        )
+        count += 1
+    return count

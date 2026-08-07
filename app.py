@@ -345,8 +345,9 @@ from db.repository import (
     add_team_member, get_team_members, get_team_members_with_db_id, update_team_member, delete_team_member,
     add_task, get_tasks, get_tasks_with_db_id, update_task, delete_task,
     add_budget_entry, get_latest_budget_entry,
-    get_recent_findings
+    get_recent_findings, bulk_add_tasks, bulk_add_team_members
 )
+import json as json_lib
 from orchestrator.orchestrator import orchestrate
 
 init_db()
@@ -1017,6 +1018,23 @@ elif page == "Tasks":
                 else:
                     st.error("Task ID and Name are required.")
 
+    with st.expander("📥  Bulk Import Tasks (upload JSON)"):
+        st.caption('Upload a JSON file: a list of objects like '
+                   '{"id": "T1", "name": "...", "progress_pct": 0, "planned_end": "YYYY-MM-DD", "depends_on": [], "assigned_to": "..."}')
+        uploaded = st.file_uploader("Choose a JSON file", type=["json"], key="task_upload")
+        if uploaded:
+            try:
+                data = json_lib.load(uploaded)
+                task_list = data.get("tasks", data) if isinstance(data, dict) else data
+                st.write(f"Found {len(task_list)} task(s) in file. Preview:")
+                st.json(task_list[:3])
+                if st.button("Import These Tasks"):
+                    count = bulk_add_tasks(active_id, task_list)
+                    st.success(f"Imported {count} tasks")
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Could not parse file: {e}")
+
     current_tasks = get_tasks_with_db_id(active_id)
     st.markdown('<div class="divider-label"><span>All Tasks</span></div>', unsafe_allow_html=True)
 
@@ -1076,7 +1094,6 @@ elif page == "Tasks":
                             if st.form_submit_button("Delete Task", type="secondary"):
                                 delete_task(task["db_id"])
                                 st.rerun()
-
 # ──────────────────────────────────────────────────────────────
 # TEAM
 # ──────────────────────────────────────────────────────────────
@@ -1100,6 +1117,22 @@ elif page == "Team":
                     st.rerun()
                 else:
                     st.error("Name is required.")
+    with st.expander("Bulk Import Team (upload JSON)"):
+        st.caption('Upload a JSON file: a list of objects like '
+                   '{"name": "...", "capacity_hrs_week": 40, "logged_hrs_week": 0, "skills": []}')
+        uploaded = st.file_uploader("Choose a JSON file", type=["json"], key="team_upload")
+        if uploaded:
+            try:
+                data = json_lib.load(uploaded)
+                member_list = data.get("team", data) if isinstance(data, dict) else data
+                st.write(f"Found {len(member_list)} member(s) in file. Preview:")
+                st.json(member_list[:3])
+                if st.button("Import These Team Members"):
+                    count = bulk_add_team_members(active_id, member_list)
+                    st.success(f"Imported {count} team members")
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Could not parse file: {e}")
 
     current_team = get_team_members_with_db_id(active_id)
     st.markdown('<div class="divider-label"><span>Team Members</span></div>', unsafe_allow_html=True)
