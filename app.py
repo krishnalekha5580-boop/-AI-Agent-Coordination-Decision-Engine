@@ -1321,6 +1321,28 @@ elif page == "Run Analysis":
                         st.markdown(f'<div class="rc-value" style="color:{color};">{icon} {r["user_response"]}</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
+            col4, col5 = st.columns(2)
+
+            with col4:
+                st.markdown('<div class="result-card"><div class="rc-title">🏃 Scrum Master</div>', unsafe_allow_html=True)
+                for r in results:
+                    if r["agent"] == "scrum_master":
+                        is_bad = r["finding"] == "impediments_found"
+                        color  = "#f87171" if is_bad else "#4ade80"
+                        icon   = "🔴" if is_bad else "🟢"
+                        st.markdown(f'<div class="rc-value" style="color:{color};">{icon} {r["user_response"]}</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            with col5:
+                st.markdown('<div class="result-card"><div class="rc-title">⚖ Project Distribution</div>', unsafe_allow_html=True)
+                for r in results:
+                    if r["agent"] == "project_distribution":
+                        is_bad = r["finding"] == "imbalanced"
+                        color  = "#f87171" if is_bad else "#4ade80"
+                        icon   = "🔴" if is_bad else "🟢"
+                        st.markdown(f'<div class="rc-value" style="color:{color};">{icon} {r["user_response"]}</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+
             st.markdown('<div class="divider-label"><span>Decision Engine · Conflicts &amp; Recommendations</span></div>', unsafe_allow_html=True)
             if conflicts:
                 for c in conflicts:
