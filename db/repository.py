@@ -11,6 +11,7 @@ from typing import List, Dict, Any, Optional
 from db.session import get_session
 from db.models import Project, TeamMember, Task, BudgetEntry, Finding
 from db.models import Project, TeamMember, Task, BudgetEntry, Finding, User
+from datetime import datetime
 
 
 # ---------- Authentication ----------
@@ -114,6 +115,27 @@ def add_team_member(
     finally:
         session.close()
 
+def get_last_data_change(project_id: int) -> Optional[datetime]:
+    """Find the most recent updated_at timestamp across tasks, team members, and budget entries for a project."""
+    session = get_session()
+    try:
+        timestamps = []
+
+        latest_task = session.query(Task).filter_by(project_id=project_id).order_by(Task.updated_at.desc()).first()
+        if latest_task and latest_task.updated_at:
+            timestamps.append(latest_task.updated_at)
+
+        latest_member = session.query(TeamMember).filter_by(project_id=project_id).order_by(TeamMember.updated_at.desc()).first()
+        if latest_member and latest_member.updated_at:
+            timestamps.append(latest_member.updated_at)
+
+        latest_budget = session.query(BudgetEntry).filter_by(project_id=project_id).order_by(BudgetEntry.updated_at.desc()).first()
+        if latest_budget and latest_budget.updated_at:
+            timestamps.append(latest_budget.updated_at)
+
+        return max(timestamps) if timestamps else None
+    finally:
+        session.close()
 
 def get_team_members(project_id: int) -> List[Dict[str, Any]]:
     """Returns dicts with capacity_hrs_week/logged_hrs_week -- ready to pass into calculate_utilization()."""
