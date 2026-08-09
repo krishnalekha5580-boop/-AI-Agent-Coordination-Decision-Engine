@@ -54,6 +54,7 @@ class TeamMember(Base):
     capacity_hrs_week = Column(Float, nullable=False, default=40.0)
     logged_hrs_week = Column(Float, nullable=False, default=0.0)
     skills = Column(JSON, default=list)  # used by allocation_tools.recommend_assignee
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     project = relationship("Project", back_populates="team_members")
 
@@ -70,7 +71,7 @@ class Task(Base):
     planned_end = Column(String, nullable=True)     # kept as "YYYY-MM-DD" string, matches calculate_days_remaining
     depends_on = Column(JSON, default=list)         # e.g. ["T1"]
     assigned_to = Column(String, nullable=True)
-
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     project = relationship("Project", back_populates="tasks")
 
 
@@ -84,7 +85,7 @@ class BudgetEntry(Base):
     actual_spend = Column(Float, nullable=False)
     pct_time_elapsed = Column(Float, nullable=False)
     recorded_at = Column(DateTime, default=datetime.utcnow)
-
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     project = relationship("Project", back_populates="budget_entries")
 
 
