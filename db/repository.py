@@ -6,12 +6,44 @@ functions. Field names match the raw inputs tools/*.py expect --
 percentages (utilization, budget status) are computed by the tools,
 not stored pre-computed here.
 """
-
+import bcrypt
 from typing import List, Dict, Any, Optional
 from db.session import get_session
 from db.models import Project, TeamMember, Task, BudgetEntry, Finding
+from db.models import Project, TeamMember, Task, BudgetEntry, Finding, User
 
 
+# ---------- Authentication ----------
+
+def create_user(username: str, password: str) -> int:
+    """Create a new user with a securely hashed password. Raises ValueError if username exists."""
+    session = get_session()
+    try:
+        existing = session.query(User).filter_by(username=username).first()
+        if existing:
+            raise ValueError("Username already exists")
+
+        password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+        user = User(username=username, password_hash=password_hash)
+        session.add(user)
+        session.commit()
+        return user.id
+    finally:
+        session.close()
+
+
+def verify_user(username: str, password: str) -> Optional[int]:
+    """Check username/password. Returns user_id if valid, None if invalid."""
+    session = get_session()
+    try:
+        user = session.query(User).filter_by(username=username).first()
+        if not user:
+            return None
+        if bcrypt.checkpw(password.encode("utf-8"), user.password_hash.encode("utf-8")):
+            return user.id
+        return None
+    finally:
+        session.close()
 # ---------- Projects ----------
 def create_project(name: str, start_date: str = None, end_date: str = None) -> int:
     session = get_session()

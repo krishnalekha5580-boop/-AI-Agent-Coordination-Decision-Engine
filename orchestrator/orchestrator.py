@@ -382,19 +382,43 @@ def run_distribution_agent(project_data, project_id):
     return findings
 
 def resolve_conflicts(all_findings, project_data):
-    """Cross-reference risk, resource, and budget findings."""
+    """Cross-reference risk, resource, budget, scrum, and distribution findings."""
     task_to_assignee = {t["id"]: t.get("assigned_to") for t in project_data["tasks"]}
 
     risk_findings = [f for f in all_findings if f["agent"] == "risk_deadline"]
     resource_findings = {f["member"]: f for f in all_findings if f["agent"] == "resource_usage"}
     budget_findings = [f for f in all_findings if f["agent"] == "budget_tracking"]
+    scrum_findings = [f for f in all_findings if f["agent"] == "scrum_master"]
+    distribution_findings = [f for f in all_findings if f["agent"] == "project_distribution"]
+
     is_over_budget = any(f["finding"] in ("over_budget", "at_risk") for f in budget_findings)
+    has_impediments = any(f["finding"] == "impediments_found" for f in scrum_findings)
+    is_imbalanced = any(f["finding"] == "imbalanced" for f in distribution_findings)
+
+    # Extract which specific task IDs the Scrum Master flagged as impediments
+    impeded_task_ids = set()
+    for f in scrum_findings:
+        impediments_text = f.get("raw_tool_outputs", {}).get("flag_impediments", "")
+        for tid in task_to_assignee.keys():
+            if tid in impediments_text:
+                impeded_task_ids.add(tid)
+
     conflicts = []
     for rf in risk_findings:
         if rf["finding"] != "high_risk":
             continue
         assignee = task_to_assignee.get(rf["task_id"])
         overloaded = assignee and assignee in resource_findings and resource_findings[assignee]["finding"] in ("overloaded", "severely_overloaded")
+        is_impeded = rf["task_id"] in impeded_task_ids
+
+        # Build extra context notes that apply regardless of which branch below fires
+        extra_notes = []
+        if is_impeded:
+            extra_notes.append("also flagged as a sprint impediment - this is blocking sprint progress, not just a deadline risk")
+        if is_imbalanced and overloaded:
+            extra_notes.append("this is part of a broader team-wide workload imbalance, not an isolated case")
+        extra_note_str = (" Additionally, " + "; ".join(extra_notes) + ".") if extra_notes else ""
+
         if overloaded and is_over_budget:
             suggestion = get_reassignment_suggestion(project_data, exclude_person=assignee)
             conflicts.append({
@@ -402,7 +426,8 @@ def resolve_conflicts(all_findings, project_data):
                 "assignee": assignee,
                 "issue": f"Task {rf['task_id']} is high-risk, {assignee} is overloaded, AND the project is over budget",
                 "recommendation": f"Highest priority: reassign task {rf['task_id']} away from {assignee}. {suggestion}. "
-                                   f"Avoid hiring/contracting extra help given budget pressure - redistribute existing workload instead"
+                                   f"Avoid hiring/contracting extra help given budget pressure - redistribute existing workload instead."
+                                   f"{extra_note_str}"
             })
         elif overloaded:
             suggestion = get_reassignment_suggestion(project_data, exclude_person=assignee)
@@ -411,15 +436,34 @@ def resolve_conflicts(all_findings, project_data):
                 "assignee": assignee,
                 "issue": f"Task {rf['task_id']} is high-risk, but {assignee} is already overloaded "
                          f"({resource_findings[assignee]['raw_tool_outputs'].get('calculate_utilization')})",
-                "recommendation": f"Recommend reassigning task {rf['task_id']} away from {assignee}. {suggestion}"
+                "recommendation": f"Recommend reassigning task {rf['task_id']} away from {assignee}. {suggestion}{extra_note_str}"
             })
         elif is_over_budget:
             conflicts.append({
                 "task_id": rf["task_id"],
                 "assignee": assignee,
                 "issue": f"Task {rf['task_id']} is high-risk and the project is over budget",
-                "recommendation": f"Prioritize task {rf['task_id']} carefully - avoid adding paid resources given budget constraints"
+                "recommendation": f"Prioritize task {rf['task_id']} carefully - avoid adding paid resources given budget constraints.{extra_note_str}"
             })
+        elif is_impeded:
+            # High-risk + impediment, but no overload or budget issue - still worth flagging
+            conflicts.append({
+                "task_id": rf["task_id"],
+                "assignee": assignee,
+                "issue": f"Task {rf['task_id']} is high-risk and flagged as a sprint impediment",
+                "recommendation": f"Investigate what's blocking task {rf['task_id']} - it has made no progress and is close to or past its deadline"
+            })
+
+    # Standalone warning: team is imbalanced even if no single task is currently in an escalated conflict above
+    if is_imbalanced and not any(c.get("assignee") for c in conflicts):
+        dist_result = distribution_findings[0]["raw_tool_outputs"].get("analyze_workload_distribution", "") if distribution_findings else ""
+        conflicts.append({
+            "task_id": None,
+            "assignee": None,
+            "issue": "Team workload distribution is imbalanced",
+            "recommendation": f"No single task is currently escalated, but workload balance should be monitored: {dist_result}"
+        })
+
     return conflicts
     
 def orchestrate(project_data, project_id):

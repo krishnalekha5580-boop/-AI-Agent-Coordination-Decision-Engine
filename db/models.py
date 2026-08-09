@@ -8,6 +8,7 @@ budget_tools.py, and allocation_tools.py expect as raw input -- percentages
 like utilization and budget status are computed BY THE TOOLS, not stored
 pre-computed, so the tools' logic stays the single source of truth.
 """
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, JSON, Boolean
 
 from datetime import datetime
 from sqlalchemy import (
@@ -17,6 +18,15 @@ from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
 
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String, unique=True, nullable=False)
+    password_hash = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    projects = relationship("Project", back_populates="owner", cascade="all, delete-orphan")
 
 class Project(Base):
     __tablename__ = "projects"
@@ -24,13 +34,15 @@ class Project(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
-    start_date = Column(String, nullable=True)  # "YYYY-MM-DD"
-    end_date = Column(String, nullable=True)  # "YYYY-MM-DD"
+    start_date = Column(String, nullable=True)
+    end_date = Column(String, nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # nullable so old projects don't break
+
+    owner = relationship("User", back_populates="projects")
     team_members = relationship("TeamMember", back_populates="project", cascade="all, delete-orphan")
     tasks = relationship("Task", back_populates="project", cascade="all, delete-orphan")
     budget_entries = relationship("BudgetEntry", back_populates="project", cascade="all, delete-orphan")
     findings = relationship("Finding", back_populates="project", cascade="all, delete-orphan")
-
 
 class TeamMember(Base):
     """Matches tools/resource_tools.py: calculate_utilization(logged_hrs, capacity_hrs)."""

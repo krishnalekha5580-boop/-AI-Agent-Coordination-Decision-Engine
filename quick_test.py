@@ -1,23 +1,13 @@
 from db.session import init_db
-from db.repository import get_tasks, get_team_members, get_latest_budget_entry
-from orchestrator.orchestrator import orchestrate
-import os
+from db.repository import create_user, verify_user
 
-os.environ["USE_MOCK_AGENT"] = "1"
 init_db()
 
-pid = 4
-tasks = get_tasks(pid)
-team = get_team_members(pid)
-budget = get_latest_budget_entry(pid)
+uid = create_user("krishna", "test1234")
+print("Created user with ID:", uid)
 
-project_data = {"tasks": tasks, "team": team}
-if budget:
-    project_data["budget"] = budget
+result = verify_user("krishna", "test1234")
+print("Login with correct password:", result)
 
-results, conflicts = orchestrate(project_data, pid)
-
-for r in results:
-    if r["agent"] == "risk_deadline":
-        print(r["task_id"], "->", r["finding"])
-        print("   ", r["raw_tool_outputs"])
+result_wrong = verify_user("krishna", "wrongpassword")
+print("Login with wrong password:", result_wrong)
