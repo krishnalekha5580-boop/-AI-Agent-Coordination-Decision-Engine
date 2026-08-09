@@ -37,7 +37,7 @@ class Project(Base):
     start_date = Column(String, nullable=True)
     end_date = Column(String, nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # nullable so old projects don't break
-
+    description = Column(String, nullable=True)
     owner = relationship("User", back_populates="projects")
     team_members = relationship("TeamMember", back_populates="project", cascade="all, delete-orphan")
     tasks = relationship("Task", back_populates="project", cascade="all, delete-orphan")
