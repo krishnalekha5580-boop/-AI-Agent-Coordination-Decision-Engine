@@ -661,7 +661,24 @@ if page == "Overview":
             budget_status = "✅ On Budget"
     col3.metric("Budget Status",  budget_status)
     col4.metric("Last Analysis",  summary["last_analysis"].strftime("%b %d, %H:%M") if summary["last_analysis"] else "Never")
+    # ---------- NEW: Stale data warning ----------
+    from db.repository import get_last_data_change
 
+    last_data_change = get_last_data_change(active_id)
+    last_analysis_time = summary["last_analysis"]
+
+    if last_data_change and last_analysis_time and last_data_change > last_analysis_time:
+        st.markdown("""
+        <div class="warn-banner">
+            ⚠ Data has changed since your last analysis was run. Results shown elsewhere may be outdated — go to Run Analysis to refresh.
+        </div>
+        """, unsafe_allow_html=True)
+    elif last_data_change and not last_analysis_time:
+        st.markdown("""
+        <div class="warn-banner">
+            ⚠ You have data but haven't run analysis yet. Go to Run Analysis to generate insights.
+        </div>
+        """, unsafe_allow_html=True)
     # Budget visual strip
     if budget_data:
         st.markdown('<div class="divider-label"><span>Budget Snapshot</span></div>', unsafe_allow_html=True)
@@ -979,7 +996,16 @@ elif page == "Run Analysis":
     tasks  = get_tasks(active_id)
     team   = get_team_members(active_id)
     budget = get_latest_budget_entry(active_id)
-
+    
+    from db.repository import get_last_data_change
+    last_data_change = get_last_data_change(active_id)
+    summary_check = get_project_summary(active_id)
+    if last_data_change and summary_check["last_analysis"] and last_data_change > summary_check["last_analysis"]:
+        st.markdown("""
+        <div class="warn-banner">
+            ⚠ Data has changed since the last analysis. Click "Run Analysis" below to get up-to-date results.
+        </div>
+        """, unsafe_allow_html=True)
     # Always use the LIVE, auto-calculated timeline percentage instead of
     # whatever was last saved in the budget entry — avoids stale data.
     from db.repository import get_project_dates

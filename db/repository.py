@@ -91,6 +91,18 @@ def update_project_dates(project_id: int, start_date: str, end_date: str):
     finally:
         session.close()
 
+def delete_project(project_id: int):
+    """Delete a project and all its related data (tasks, team, budget, findings) via cascade."""
+    session = get_session()
+    try:
+        project = session.query(Project).filter_by(id=project_id).first()
+        if project:
+            session.delete(project)
+            session.commit()
+            return True
+        return False
+    finally:
+        session.close()
 # ---------- Team Members ----------
 
 def add_team_member(
