@@ -25,13 +25,15 @@ class User(Base):
     username = Column(String, unique=True, nullable=False)
     password_hash = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
-
+    security_question = Column(String, nullable=True)
+    security_answer_hash = Column(String, nullable=True)
     projects = relationship("Project", back_populates="owner", cascade="all, delete-orphan")
 
 class Project(Base):
     __tablename__ = "projects"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    description = Column(String, nullable=True)
     name = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     start_date = Column(String, nullable=True)
@@ -86,6 +88,7 @@ class BudgetEntry(Base):
     pct_time_elapsed = Column(Float, nullable=False)
     recorded_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
     project = relationship("Project", back_populates="budget_entries")
 
 

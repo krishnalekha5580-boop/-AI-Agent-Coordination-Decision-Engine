@@ -1,0 +1,56 @@
+{
+  "tasks": [
+    {
+      "id": "T1",
+      "name": "Payment Gateway Integration",
+      "progress_pct": 35,
+      "planned_end": "2026-08-05",
+      "depends_on": [],
+      "assigned_to": "Priya"
+    },
+    {
+      "id": "T2",
+      "name": "Checkout Flow Testing",
+      "progress_pct": 10,
+      "planned_end": "2026-08-12",
+      "depends_on": ["T1"],
+      "assigned_to": "Jane"
+    },
+    {
+      "id": "T3",
+      "name": "Product Catalog UI",
+      "progress_pct": 90,
+      "planned_end": "2026-09-01",
+      "depends_on": [],
+      "assigned_to": "Arjun"
+    },
+    {
+      "id": "T4",
+      "name": "Order Notifications Service",
+      "progress_pct": 20,
+      "planned_end": "2026-08-15",
+      "depends_on": ["T99"],
+      "assigned_to": "Arjun"
+    }
+  ],
+  "team": [
+    {
+      "name": "Priya",
+      "capacity_hrs_week": 40,
+      "logged_hrs_week": 48,
+      "skills": ["Payments", "Backend", "Python"]
+    },
+    {
+      "name": "Arjun",
+      "capacity_hrs_week": 40,
+      "logged_hrs_week": 22,
+      "skills": ["Frontend", "React", "UI/UX"]
+    },
+    {
+      "name": "Jane",
+      "capacity_hrs_week": 40,
+      "logged_hrs_week": 10,
+      "skills": ["Frontend", "UI/UX"]
+    }
+  ]
+}

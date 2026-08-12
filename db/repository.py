@@ -16,7 +16,7 @@ from datetime import datetime
 
 # ---------- Authentication ----------
 
-def create_user(username: str, password: str) -> int:
+def create_user(username: str, password: str, security_question: str = None, security_answer: str = None) -> int:
     """Create a new user with a securely hashed password. Raises ValueError if username exists."""
     session = get_session()
     try:
@@ -25,10 +25,48 @@ def create_user(username: str, password: str) -> int:
             raise ValueError("Username already exists")
 
         password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-        user = User(username=username, password_hash=password_hash)
+
+        answer_hash = None
+        if security_answer:
+            answer_hash = bcrypt.hashpw(security_answer.lower().strip().encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+        user = User(
+            username=username,
+            password_hash=password_hash,
+            security_question=security_question,
+            security_answer_hash=answer_hash
+        )
         session.add(user)
         session.commit()
         return user.id
+    finally:
+        session.close()
+    
+def get_security_question(username: str) -> Optional[str]:
+    session = get_session()
+    try:
+        user = session.query(User).filter_by(username=username).first()
+        if user:
+            return user.security_question
+        return None
+    finally:
+        session.close()
+
+
+def reset_password(username: str, security_answer: str, new_password: str) -> bool:
+    """Reset password if the security answer matches. Returns True if successful."""
+    session = get_session()
+    try:
+        user = session.query(User).filter_by(username=username).first()
+        if not user or not user.security_answer_hash:
+            return False
+
+        if not bcrypt.checkpw(security_answer.lower().strip().encode("utf-8"), user.security_answer_hash.encode("utf-8")):
+            return False
+
+        user.password_hash = bcrypt.hashpw(new_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+        session.commit()
+        return True
     finally:
         session.close()
 
@@ -56,7 +94,38 @@ def create_project(name: str, start_date: str = None, end_date: str = None) -> i
     finally:
         session.close()
 
+def create_project_with_description(name: str, description: str, start_date: str = None, end_date: str = None) -> int:
+    """Create a project with a description field."""
+    session = get_session()
+    try:
+        project = Project(name=name, description=description, start_date=start_date, end_date=end_date)
+        session.add(project)
+        session.commit()
+        return project.id
+    finally:
+        session.close()
 
+
+def get_project_description(project_id: int) -> Optional[str]:
+    session = get_session()
+    try:
+        project = session.query(Project).filter_by(id=project_id).first()
+        return project.description if project else None
+    finally:
+        session.close()
+
+
+def copy_default_team_to_project(project_id: int, default_team: List[Dict[str, Any]]):
+    """Seed a new project with a standard starting team roster."""
+    for member in default_team:
+        add_team_member(
+            project_id=project_id,
+            name=member["name"],
+            capacity_hrs_week=member.get("capacity_hrs_week", 40),
+            logged_hrs_week=member.get("logged_hrs_week", 0),
+            skills=member.get("skills", [])
+        )
+        
 def list_projects() -> List[Dict[str, Any]]:
     session = get_session()
     try:
@@ -101,6 +170,16 @@ def delete_project(project_id: int):
             session.commit()
             return True
         return False
+    finally:
+        session.close()
+
+def rename_project(project_id: int, new_name: str):
+    session = get_session()
+    try:
+        project = session.query(Project).filter_by(id=project_id).first()
+        if project:
+            project.name = new_name
+            session.commit()
     finally:
         session.close()
 # ---------- Team Members ----------
