@@ -125,7 +125,7 @@ def copy_default_team_to_project(project_id: int, default_team: List[Dict[str, A
             logged_hrs_week=member.get("logged_hrs_week", 0),
             skills=member.get("skills", [])
         )
-        
+
 def list_projects() -> List[Dict[str, Any]]:
     session = get_session()
     try:
@@ -294,7 +294,21 @@ def get_tasks(project_id: int) -> List[Dict[str, Any]]:
     finally:
         session.close()
 
-
+def save_generated_tasks(project_id: int, generated_tasks: list, default_deadline: str = None):
+    """Save AI-generated tasks (from the Planning Agent) into the database."""
+    count = 0
+    for t in generated_tasks:
+        add_task(
+            project_id=project_id,
+            task_key=t.get("id", f"T{count+1}"),
+            title=t.get("name", "Untitled task"),
+            progress_pct=0,
+            planned_end=default_deadline,
+            depends_on=[],
+            assigned_to=t.get("assigned_to")
+        )
+        count += 1
+    return count
 # ---------- Budget ----------
 
 def add_budget_entry(project_id: int, planned_spend: float, actual_spend: float, pct_time_elapsed: float) -> int:
