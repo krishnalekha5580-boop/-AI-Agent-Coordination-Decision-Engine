@@ -75,6 +75,7 @@ class Task(Base):
     assigned_to = Column(String, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     project = relationship("Project", back_populates="tasks")
+    required_skill = Column(String, nullable=True)
 
 
 class BudgetEntry(Base):

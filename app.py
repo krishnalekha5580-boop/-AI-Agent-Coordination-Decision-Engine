@@ -1735,18 +1735,37 @@ if not active_id:
     with tab_new:
         with st.form("create_project_form"):
             new_name = st.text_input("Project name")
+            new_description = st.text_area(
+                "Project description",
+                placeholder="e.g. Build a payment gateway integration for an e-commerce checkout flow, including frontend cart UI and backend webhook handling."
+            )
             new_start = st.date_input("Start date")
             new_end = st.date_input("End date")
+            use_ai_planning = st.checkbox("🤖 Auto-generate tasks and team assignments from this description", value=True)
+
             if st.form_submit_button("Create Project", type="primary"):
                 if new_name.strip():
-                    pid = create_project(new_name.strip(), str(new_start), str(new_end))
+                    from db.repository import create_project_with_description, copy_default_team_to_project, save_generated_tasks
+                    from db.default_team import DEFAULT_TEAM
+
+                    pid = create_project_with_description(new_name.strip(), new_description.strip(), str(new_start), str(new_end))
+                    copy_default_team_to_project(pid, DEFAULT_TEAM)
+
+                    if use_ai_planning and new_description.strip():
+                        from agents.planning_agent import generate_task_breakdown
+                        with st.spinner("AI is breaking down your project into tasks..."):
+                            generated = generate_task_breakdown(new_description.strip(), DEFAULT_TEAM)
+                            if generated:
+                                save_generated_tasks(pid, generated, default_deadline=str(new_end))
+                                st.success(f"Created project and generated {len(generated)} tasks")
+                            else:
+                                st.warning("Project created, but AI task generation didn't return valid results. You can add tasks manually.")
+
                     st.session_state["active_project_id"] = pid
                     st.session_state["active_project_name"] = new_name.strip()
                     st.rerun()
                 else:
                     st.error("Enter a project name")
-
-    st.stop()
 
 
 # ══════════════════════════════════════════════════════════════

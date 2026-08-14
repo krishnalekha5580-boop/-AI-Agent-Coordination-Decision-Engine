@@ -256,6 +256,7 @@ def add_task(
     planned_end: Optional[str] = None,
     depends_on: Optional[List[str]] = None,
     assigned_to: Optional[str] = None,
+    required_skill: Optional[str] = None,
 ) -> int:
     session = get_session()
     try:
@@ -267,6 +268,7 @@ def add_task(
             planned_end=planned_end,
             depends_on=depends_on or [],
             assigned_to=assigned_to,
+            required_skill=required_skill,
         )
         session.add(task)
         session.commit()
@@ -276,7 +278,6 @@ def add_task(
 
 
 def get_tasks(project_id: int) -> List[Dict[str, Any]]:
-    """Returns dicts shaped exactly like your original JSON task entries (id/name/depends_on/etc)."""
     session = get_session()
     try:
         tasks = session.query(Task).filter_by(project_id=project_id).all()
@@ -288,6 +289,7 @@ def get_tasks(project_id: int) -> List[Dict[str, Any]]:
                 "planned_end": t.planned_end,
                 "depends_on": t.depends_on or [],
                 "assigned_to": t.assigned_to,
+                "required_skill": t.required_skill,
             }
             for t in tasks
         ]
@@ -295,7 +297,6 @@ def get_tasks(project_id: int) -> List[Dict[str, Any]]:
         session.close()
 
 def save_generated_tasks(project_id: int, generated_tasks: list, default_deadline: str = None):
-    """Save AI-generated tasks (from the Planning Agent) into the database."""
     count = 0
     for t in generated_tasks:
         add_task(
@@ -305,7 +306,8 @@ def save_generated_tasks(project_id: int, generated_tasks: list, default_deadlin
             progress_pct=0,
             planned_end=default_deadline,
             depends_on=[],
-            assigned_to=t.get("assigned_to")
+            assigned_to=t.get("assigned_to"),
+            required_skill=t.get("required_skill"),
         )
         count += 1
     return count
