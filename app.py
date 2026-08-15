@@ -1749,23 +1749,28 @@ if not active_id:
                     from db.default_team import DEFAULT_TEAM
 
                     pid = create_project_with_description(new_name.strip(), new_description.strip(), str(new_start), str(new_end))
-                    copy_default_team_to_project(pid, DEFAULT_TEAM)
 
                     if use_ai_planning and new_description.strip():
                         from agents.planning_agent import generate_task_breakdown
                         with st.spinner("AI is breaking down your project into tasks..."):
                             generated = generate_task_breakdown(new_description.strip(), DEFAULT_TEAM)
                             if generated:
+                                assigned_names = {t.get("assigned_to") for t in generated if t.get("assigned_to")}
+                                relevant_team = [m for m in DEFAULT_TEAM if m["name"] in assigned_names]
+                                copy_default_team_to_project(pid, relevant_team)
                                 save_generated_tasks(pid, generated, default_deadline=str(new_end))
-                                st.success(f"Created project and generated {len(generated)} tasks")
+                                st.success(f"Created project and generated {len(generated)} tasks, assigned to {len(relevant_team)} team member(s)")
                             else:
                                 st.warning("Project created, but AI task generation didn't return valid results. You can add tasks manually.")
+                    # else: no AI planning - project starts with an empty team, added manually
 
                     st.session_state["active_project_id"] = pid
                     st.session_state["active_project_name"] = new_name.strip()
                     st.rerun()
                 else:
                     st.error("Enter a project name")
+    st.stop()
+
 
 
 # ══════════════════════════════════════════════════════════════

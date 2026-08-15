@@ -1,19 +1,13 @@
-from db.default_team import DEFAULT_TEAM
-from orchestrator.orchestrator import get_reassignment_suggestion
+from db.repository import get_tasks, get_team_members
 
-project_data = {
-    "tasks": [{"id": "T1", "required_skill": "Backend"}],
-    "team": DEFAULT_TEAM
-}
+pid = 6
+tasks = get_tasks(pid)
+team = get_team_members(pid)
 
-# Simulate Priya being overloaded, task needs Backend skill
-result = get_reassignment_suggestion(project_data, exclude_person="Priya", required_skill="Backend")
-print(result)
-result2 = get_reassignment_suggestion(project_data, exclude_person="Arjun", required_skill="Frontend")
-print(result2)
-result3 = get_reassignment_suggestion(
-    {"tasks": [{"id": "T1", "required_skill": "QA"}], "team": DEFAULT_TEAM},
-    exclude_person="Priya",
-    required_skill="QA"
-)
-print(result3)
+print("Tasks and assignees:")
+for t in tasks:
+    print(" ", t["id"], "-", t["name"], "-> assigned to:", repr(t["assigned_to"]))
+
+print("\nTeam members actually in project:")
+for m in team:
+    print(" ", repr(m["name"]))
