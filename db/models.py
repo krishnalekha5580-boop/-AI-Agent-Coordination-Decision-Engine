@@ -29,6 +29,32 @@ class User(Base):
     security_answer_hash = Column(String, nullable=True)
     projects = relationship("Project", back_populates="owner", cascade="all, delete-orphan")
 
+class Person(Base):
+    """Global person, independent of any single project. One row per real human."""
+    __tablename__ = "people"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, nullable=False, unique=True)
+    capacity_hrs_week = Column(Float, nullable=False, default=40.0)
+    skills = Column(JSON, default=list)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    assignments = relationship("ProjectAssignment", back_populates="person", cascade="all, delete-orphan")
+
+
+class ProjectAssignment(Base):
+    """Links a global Person to a specific Project, with hours logged on that project."""
+    __tablename__ = "project_assignments"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    person_id = Column(Integer, ForeignKey("people.id"), nullable=False)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    logged_hrs_week = Column(Float, nullable=False, default=0.0)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    person = relationship("Person", back_populates="assignments")
+    project = relationship("Project")
+
 class Project(Base):
     __tablename__ = "projects"
 

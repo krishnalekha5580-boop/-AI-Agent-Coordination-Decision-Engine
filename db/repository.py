@@ -9,8 +9,7 @@ not stored pre-computed here.
 import bcrypt
 from typing import List, Dict, Any, Optional
 from db.session import get_session
-from db.models import Project, TeamMember, Task, BudgetEntry, Finding
-from db.models import Project, TeamMember, Task, BudgetEntry, Finding, User
+from db.models import Project, TeamMember, Task, BudgetEntry, Finding, User, Person, ProjectAssignment
 from datetime import datetime
 
 
@@ -83,6 +82,96 @@ def verify_user(username: str, password: str) -> Optional[int]:
         return None
     finally:
         session.close()
+
+# ---------- Global People ----------
+
+def get_or_create_person(name: str, capacity_hrs_week: float = 40.0, skills: Optional[List[str]] = None) -> int:
+    """Find an existing global person by name, or create them if they don't exist yet."""
+    session = get_session()
+    try:
+        existing = session.query(Person).filter_by(name=name).first()
+        if existing:
+            return existing.id
+        person = Person(name=name, capacity_hrs_week=capacity_hrs_week, skills=skills or [])
+        session.add(person)
+        session.commit()
+        return person.id
+    finally:
+        session.close()
+
+
+def assign_person_to_project(person_id: int, project_id: int, logged_hrs_week: float = 0.0) -> int:
+    """Link a person to a project, or update their hours if already assigned."""
+    session = get_session()
+    try:
+        existing = session.query(ProjectAssignment).filter_by(person_id=person_id, project_id=project_id).first()
+        if existing:
+            existing.logged_hrs_week = logged_hrs_week
+            session.commit()
+            return existing.id
+        assignment = ProjectAssignment(person_id=person_id, project_id=project_id, logged_hrs_week=logged_hrs_week)
+        session.add(assignment)
+        session.commit()
+        return assignment.id
+    finally:
+        session.close()
+
+
+def get_person_total_logged_hours(person_id: int) -> float:
+    """Sum a person's logged hours across ALL their active project assignments."""
+    session = get_session()
+    try:
+        assignments = session.query(ProjectAssignment).filter_by(person_id=person_id).all()
+        return sum(a.logged_hrs_week for a in assignments)
+    finally:
+        session.close()
+
+
+def get_project_team_v2(project_id: int) -> List[Dict[str, Any]]:
+    """Get a project's team using the new global-people system, with TRUE cross-project utilization."""
+    session = get_session()
+    try:
+        assignments = session.query(ProjectAssignment).filter_by(project_id=project_id).all()
+        result = []
+        for a in assignments:
+            person = session.query(Person).filter_by(id=a.person_id).first()
+            if not person:
+                continue
+            total_logged = get_person_total_logged_hours(a.person_id)
+            result.append({
+                "person_id": person.id,
+                "name": person.name,
+                "capacity_hrs_week": person.capacity_hrs_week,
+                "logged_hrs_week_this_project": a.logged_hrs_week,
+                "logged_hrs_week_total": total_logged,
+                "skills": person.skills or [],
+            })
+        return result
+    finally:
+        session.close()
+
+
+def get_all_people() -> List[Dict[str, Any]]:
+    """List every global person in the system, for selection when staffing a new project."""
+    session = get_session()
+    try:
+        people = session.query(Person).all()
+        result = []
+        for p in people:
+            total_logged = get_person_total_logged_hours(p.id)
+            pct = (total_logged / p.capacity_hrs_week * 100) if p.capacity_hrs_week else 0
+            result.append({
+                "id": p.id,
+                "name": p.name,
+                "capacity_hrs_week": p.capacity_hrs_week,
+                "total_logged_hrs_week": total_logged,
+                "overall_utilization_pct": round(pct, 1),
+                "skills": p.skills or [],
+            })
+        return result
+    finally:
+        session.close()
+                    
 # ---------- Projects ----------
 def create_project(name: str, start_date: str = None, end_date: str = None) -> int:
     session = get_session()

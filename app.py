@@ -1479,10 +1479,21 @@ st.markdown("""
     }
 
     /* ── Result card (analysis) ── */
-    .result-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; height: 100%; }
+    .result-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; height: 100%; margin-bottom: 20px; }   
     .result-card .rc-title { font-size: 0.70rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.10em; color: var(--text-lo); margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
     .result-card .rc-value { font-size: 0.90rem; color: #cbd5e1; line-height: 1.55; }
-
+    .result-card .rc-line {
+    padding: 8px 10px 8px 12px;
+    margin-bottom: 6px;
+    border-left: 3px solid var(--border-lt);
+    background: var(--card-alt);
+    border-radius: 4px;
+    font-size: 0.88rem;
+    color: #cbd5e1;
+    line-height: 1.5;
+    }
+    .result-card .rc-line.rc-good { border-left-color: var(--green); }
+    .result-card .rc-line.rc-bad  { border-left-color: var(--red); }
     /* ── Conflict / info / warn banners ── */
     .conflict-card { background: rgba(245,158,11,0.06); border: 1px solid rgba(245,158,11,0.25); border-left: 3px solid #f59e0b; border-radius: 10px; padding: 14px 18px; margin-bottom: 12px; }
     .conflict-card .cc-issue { color: var(--yellow); font-weight: 700; font-size: 0.9rem; margin-bottom: 6px; }
@@ -2488,58 +2499,75 @@ elif page == "Run Analysis":
 
             st.markdown('<div class="divider-label"><span>Agent Results</span></div>', unsafe_allow_html=True)
             col1, col2, col3 = st.columns(3)
-
+            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
             with col1:
-                st.markdown('<div class="result-card"><div class="rc-title">⚠ Risk &amp; Deadline</div>', unsafe_allow_html=True)
+                risk_items_html = ""
                 for r in results:
                     if r["agent"] == "risk_deadline":
-                        is_bad = r["finding"] == "high_risk"
-                        color  = "#f87171" if is_bad else "#4ade80"
-                        icon   = "🔴" if is_bad else "🟢"
-                        st.markdown(f'<div class="rc-value" style="color:{color};">{icon} {r["user_response"]}</div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+                        cls = "rc-bad" if r["finding"] == "high_risk" else "rc-good"
+                        risk_items_html += f'<div class="rc-line {cls}">{r["user_response"]}</div>'
+                st.markdown(f"""
+                <div class="result-card">
+                    <div class="rc-title">⚠ Risk &amp; Deadline</div>
+                    {risk_items_html}
+                </div>
+                """, unsafe_allow_html=True)
 
             with col2:
-                st.markdown('<div class="result-card"><div class="rc-title">👤 Resource Usage</div>', unsafe_allow_html=True)
+                resource_items_html = ""
                 for r in results:
                     if r["agent"] == "resource_usage":
-                        is_bad = r["finding"] in ("overloaded", "severely_overloaded")
-                        color  = "#f87171" if is_bad else "#4ade80"
-                        icon   = "🔴" if is_bad else "🟢"
-                        st.markdown(f'<div class="rc-value" style="color:{color};">{icon} {r["user_response"]}</div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+                        cls = "rc-bad" if r["finding"] in ("overloaded", "severely_overloaded") else "rc-good"
+                        resource_items_html += f'<div class="rc-line {cls}">{r["user_response"]}</div>'
+                st.markdown(f"""
+                <div class="result-card">
+                    <div class="rc-title">👤 Resource Usage</div>
+                    {resource_items_html}
+                </div>
+                """, unsafe_allow_html=True)
 
             with col3:
-                st.markdown('<div class="result-card"><div class="rc-title">💰 Budget</div>', unsafe_allow_html=True)
+                budget_items_html = ""
                 for r in results:
                     if r["agent"] == "budget_tracking":
-                        is_bad = r["finding"] == "over_budget"
-                        color  = "#f87171" if is_bad else "#4ade80"
-                        icon   = "🔴" if is_bad else "🟢"
-                        st.markdown(f'<div class="rc-value" style="color:{color};">{icon} {r["user_response"]}</div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-
+                        cls = "rc-bad" if r["finding"] == "over_budget" else "rc-good"
+                        budget_items_html += f'<div class="rc-line {cls}">{r["user_response"]}</div>'
+                if not budget_items_html:
+                    budget_items_html = '<div class="rc-line">No budget data recorded for this project.</div>'
+                st.markdown(f"""
+                <div class="result-card">
+                    <div class="rc-title">💰 Budget</div>
+                    {budget_items_html}
+                </div>
+                """, unsafe_allow_html=True)
+            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
             col4, col5 = st.columns(2)
 
             with col4:
-                st.markdown('<div class="result-card"><div class="rc-title">🏃 Scrum Master</div>', unsafe_allow_html=True)
+                scrum_master_items_html = ""
                 for r in results:
                     if r["agent"] == "scrum_master":
-                        is_bad = r["finding"] == "impediments_found"
-                        color  = "#f87171" if is_bad else "#4ade80"
-                        icon   = "🔴" if is_bad else "🟢"
-                        st.markdown(f'<div class="rc-value" style="color:{color};">{icon} {r["user_response"]}</div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+                        cls = "rc-bad" if r["finding"] == "impediments_found" else "rc-good"
+                        scrum_master_items_html += f'<div class="rc-line {cls}">{r["user_response"]}</div>'
+                st.markdown(f"""
+                <div class="result-card">
+                    <div class="rc-title">🏃 Scrum Master</div>
+                    {scrum_master_items_html}
+                </div>
+                """, unsafe_allow_html=True)
 
             with col5:
-                st.markdown('<div class="result-card"><div class="rc-title">⚖ Project Distribution</div>', unsafe_allow_html=True)
+                project_distribution_items_html = ""
                 for r in results:
                     if r["agent"] == "project_distribution":
-                        is_bad = r["finding"] == "imbalanced"
-                        color  = "#f87171" if is_bad else "#4ade80"
-                        icon   = "🔴" if is_bad else "🟢"
-                        st.markdown(f'<div class="rc-value" style="color:{color};">{icon} {r["user_response"]}</div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+                        cls = "rc-bad" if r["finding"] == "imbalanced" else "rc-good"
+                        project_distribution_items_html += f'<div class="rc-line {cls}">{r["user_response"]}</div>'
+                st.markdown(f"""
+                <div class="result-card">
+                    <div class="rc-title">⚖ Project Distribution</div>
+                    {project_distribution_items_html}
+                </div>
+                """, unsafe_allow_html=True)
 
             st.markdown('<div class="divider-label"><span>Decision Engine · Conflicts &amp; Recommendations</span></div>', unsafe_allow_html=True)
             if conflicts:
