@@ -273,27 +273,27 @@ def rename_project(project_id: int, new_name: str):
         session.close()
 # ---------- Team Members ----------
 
-def add_team_member(
-    project_id: int,
-    name: str,
-    capacity_hrs_week: float,
-    logged_hrs_week: float,
-    skills: Optional[List[str]] = None,
-) -> int:
-    session = get_session()
-    try:
-        member = TeamMember(
-            project_id=project_id,
-            name=name,
-            capacity_hrs_week=capacity_hrs_week,
-            logged_hrs_week=logged_hrs_week,
-            skills=skills or [],
-        )
-        session.add(member)
-        session.commit()
-        return member.id
-    finally:
-        session.close()
+# def add_team_member(
+#     project_id: int,
+#     name: str,
+#     capacity_hrs_week: float,
+#     logged_hrs_week: float,
+#     skills: Optional[List[str]] = None,
+# ) -> int:
+#     session = get_session()
+#     try:
+#         member = TeamMember(
+#             project_id=project_id,
+#             name=name,
+#             capacity_hrs_week=capacity_hrs_week,
+#             logged_hrs_week=logged_hrs_week,
+#             skills=skills or [],
+#         )
+#         session.add(member)
+#         session.commit()
+#         return member.id
+#     finally:
+#         session.close()
 
 def get_last_data_change(project_id: int) -> Optional[datetime]:
     """Find the most recent updated_at timestamp across tasks, team members, and budget entries for a project."""
@@ -317,22 +317,103 @@ def get_last_data_change(project_id: int) -> Optional[datetime]:
     finally:
         session.close()
 
+# ---------- Team (now backed by global Person + ProjectAssignment) ----------
+
+def add_team_member(project_id: int, name: str, capacity_hrs_week: float, logged_hrs_week: float, skills: Optional[List[str]] = None) -> int:
+    """Add or reuse a global person, and assign them to this project with these hours."""
+    person_id = get_or_create_person(name, capacity_hrs_week, skills or [])
+    assign_person_to_project(person_id, project_id, logged_hrs_week)
+    return person_id
+
+
 def get_team_members(project_id: int) -> List[Dict[str, Any]]:
-    """Returns dicts with capacity_hrs_week/logged_hrs_week -- ready to pass into calculate_utilization()."""
+    """Team for this project, with TOTAL cross-project hours (so overload is correctly detected everywhere)."""
     session = get_session()
     try:
-        members = session.query(TeamMember).filter_by(project_id=project_id).all()
-        return [
-            {
-                "name": m.name,
-                "capacity_hrs_week": m.capacity_hrs_week,
-                "logged_hrs_week": m.logged_hrs_week,
-                "skills": m.skills or [],
-            }
-            for m in members
-        ]
+        assignments = session.query(ProjectAssignment).filter_by(project_id=project_id).all()
+        result = []
+        for a in assignments:
+            person = session.query(Person).filter_by(id=a.person_id).first()
+            if not person:
+                continue
+            total = get_person_total_logged_hours(person.id)
+            result.append({
+                "name": person.name,
+                "capacity_hrs_week": person.capacity_hrs_week,
+                "logged_hrs_week": total,
+                "skills": person.skills or [],
+            })
+        return result
     finally:
         session.close()
+
+
+def get_team_members_with_db_id(project_id: int) -> List[Dict[str, Any]]:
+    """Same as get_team_members but includes person_id, needed for edit/delete in the UI."""
+    session = get_session()
+    try:
+        assignments = session.query(ProjectAssignment).filter_by(project_id=project_id).all()
+        result = []
+        for a in assignments:
+            person = session.query(Person).filter_by(id=a.person_id).first()
+            if not person:
+                continue
+            total = get_person_total_logged_hours(person.id)
+            result.append({
+                "db_id": person.id,
+                "name": person.name,
+                "capacity_hrs_week": person.capacity_hrs_week,
+                "logged_hrs_week": a.logged_hrs_week,
+                "logged_hrs_week_total": total,
+                "skills": person.skills or [],
+            })
+        return result
+    finally:
+        session.close()
+
+
+def update_team_member(person_id: int, name: str, capacity_hrs_week: float, logged_hrs_week: float, skills: List[str], project_id: int) -> None:
+    """Update a person's global details AND their hours on this specific project."""
+    session = get_session()
+    try:
+        person = session.query(Person).filter_by(id=person_id).first()
+        if person:
+            person.name = name
+            person.capacity_hrs_week = capacity_hrs_week
+            person.skills = skills
+            session.commit()
+    finally:
+        session.close()
+    assign_person_to_project(person_id, project_id, logged_hrs_week)
+
+
+def delete_team_member(person_id: int, project_id: int) -> None:
+    """Remove this person from THIS project only (they stay in the global pool for other projects)."""
+    session = get_session()
+    try:
+        assignment = session.query(ProjectAssignment).filter_by(person_id=person_id, project_id=project_id).first()
+        if assignment:
+            session.delete(assignment)
+            session.commit()
+    finally:
+        session.close()
+
+# def get_team_members(project_id: int) -> List[Dict[str, Any]]:
+#     """Returns dicts with capacity_hrs_week/logged_hrs_week -- ready to pass into calculate_utilization()."""
+#     session = get_session()
+#     try:
+#         members = session.query(TeamMember).filter_by(project_id=project_id).all()
+#         return [
+#             {
+#                 "name": m.name,
+#                 "capacity_hrs_week": m.capacity_hrs_week,
+#                 "logged_hrs_week": m.logged_hrs_week,
+#                 "skills": m.skills or [],
+#             }
+#             for m in members
+#         ]
+#     finally:
+#         session.close()
 
 
 # ---------- Tasks ----------
@@ -517,48 +598,48 @@ def get_tasks_with_db_id(project_id: int) -> List[Dict[str, Any]]:
 
 # ---------- Team Member Update/Delete ----------
 
-def update_team_member(member_db_id: int, name: str, capacity_hrs_week: float, logged_hrs_week: float, skills: List[str]):
-    session = get_session()
-    try:
-        member = session.query(TeamMember).filter_by(id=member_db_id).first()
-        if member:
-            member.name = name
-            member.capacity_hrs_week = capacity_hrs_week
-            member.logged_hrs_week = logged_hrs_week
-            member.skills = skills
-            session.commit()
-    finally:
-        session.close()
+# def update_team_member(member_db_id: int, name: str, capacity_hrs_week: float, logged_hrs_week: float, skills: List[str]):
+#     session = get_session()
+#     try:
+#         member = session.query(TeamMember).filter_by(id=member_db_id).first()
+#         if member:
+#             member.name = name
+#             member.capacity_hrs_week = capacity_hrs_week
+#             member.logged_hrs_week = logged_hrs_week
+#             member.skills = skills
+#             session.commit()
+#     finally:
+#         session.close()
 
 
-def delete_team_member(member_db_id: int):
-    session = get_session()
-    try:
-        member = session.query(TeamMember).filter_by(id=member_db_id).first()
-        if member:
-            session.delete(member)
-            session.commit()
-    finally:
-        session.close()
+# def delete_team_member(member_db_id: int):
+#     session = get_session()
+#     try:
+#         member = session.query(TeamMember).filter_by(id=member_db_id).first()
+#         if member:
+#             session.delete(member)
+#             session.commit()
+#     finally:
+#         session.close()
 
 
-def get_team_members_with_db_id(project_id: int) -> List[Dict[str, Any]]:
-    """Same as get_team_members but includes the internal database id, needed for edit/delete."""
-    session = get_session()
-    try:
-        members = session.query(TeamMember).filter_by(project_id=project_id).all()
-        return [
-            {
-                "db_id": m.id,
-                "name": m.name,
-                "capacity_hrs_week": m.capacity_hrs_week,
-                "logged_hrs_week": m.logged_hrs_week,
-                "skills": m.skills or [],
-            }
-            for m in members
-        ]
-    finally:
-        session.close()
+# def get_team_members_with_db_id(project_id: int) -> List[Dict[str, Any]]:
+#     """Same as get_team_members but includes the internal database id, needed for edit/delete."""
+#     session = get_session()
+#     try:
+#         members = session.query(TeamMember).filter_by(project_id=project_id).all()
+#         return [
+#             {
+#                 "db_id": m.id,
+#                 "name": m.name,
+#                 "capacity_hrs_week": m.capacity_hrs_week,
+#                 "logged_hrs_week": m.logged_hrs_week,
+#                 "skills": m.skills or [],
+#             }
+#             for m in members
+#         ]
+#     finally:
+#         session.close()
 # ---------- Findings ----------
 
 def save_finding(project_id: int, agent_name: str, target: str, finding: str, details: Optional[Dict] = None) -> int:

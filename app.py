@@ -1807,6 +1807,7 @@ NAV_ITEMS = {
     "Overview":     ":material/dashboard: Overview",
     "Tasks":        ":material/task_alt: Tasks",
     "Team":         ":material/group: Team",
+    "Global Team":  ":material/public: Global Team",
     "Budget":       ":material/payments: Budget",
     "Run Analysis": ":material/neurology: AI Engine",
     "History":      ":material/history: History",
@@ -2367,6 +2368,68 @@ elif page == "Team":
                                 if st.form_submit_button("Delete Member", type="secondary"):
                                     delete_team_member(member["db_id"])
                                     st.rerun()
+# ══════════════════════════════════════════════════════════════
+# GLOBAL TEAM
+# ══════════════════════════════════════════════════════════════
+
+elif page == "Global Team":
+    st.markdown('<div class="section-label"><div class="sl-left"><div class="icon">🌐</div><h3>Global Team — Cross-Project Workload</h3></div></div>', unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class="info-banner">
+        <span>ℹ️</span>
+        <span>This view tracks each person's <b>total</b> workload across every project they're assigned to — not just this one. This solves the problem where a person could be shown as "available" in one project while already overloaded elsewhere.</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    from db.repository import get_all_people, get_or_create_person, assign_person_to_project
+
+    with st.expander("＋  Add / Assign Person to This Project"):
+        with st.form("global_assign_form"):
+            person_name = st.text_input("Person name")
+            capacity = st.number_input("Weekly Capacity (hrs)", value=40.0)
+            skills_raw = st.text_input("Skills (comma-separated)")
+            hours_here = st.number_input("Hours to log on THIS project", value=0.0)
+            if st.form_submit_button("Assign to Project"):
+                if person_name.strip():
+                    skills = [s.strip() for s in skills_raw.split(",") if s.strip()]
+                    person_id = get_or_create_person(person_name.strip(), capacity, skills)
+                    assign_person_to_project(person_id, active_id, hours_here)
+                    st.success(f"{person_name} assigned to this project")
+                    st.rerun()
+                else:
+                    st.error("Enter a name")
+
+    st.markdown('<div class="divider-label"><span>All People — Global Utilization</span></div>', unsafe_allow_html=True)
+
+    people = get_all_people()
+    if not people:
+        st.info("No people in the global pool yet. Add one above.")
+    else:
+        for p in people:
+            pct = p["overall_utilization_pct"]
+            if pct >= 100:  color, label = "#f87171", "OVERLOADED (across all projects)"
+            elif pct >= 85: color, label = "#fbbf24", "HIGH"
+            else:            color, label = "#4ade80", "AVAILABLE"
+
+            skills_str = ", ".join(p["skills"]) if p["skills"] else "—"
+            st.markdown(f"""
+            <div class="member-card">
+                <div class="member-head">
+                    <div class="member-id">
+                        <div class="member-avatar">{p['name'][:2].upper()}</div>
+                        <div>
+                            <div class="member-name">{p['name']}</div>
+                            <div class="member-role">{skills_str}</div>
+                        </div>
+                    </div>
+                    <span class="badge" style="background:{color}22;color:{color};border:1px solid {color}55;">{label}</span>
+                </div>
+                <div class="util-label-row"><span>Total across all projects</span><span style="color:{color};font-weight:700;">{pct:.0f}%</span></div>
+                <div class="util-bar-bg"><div class="util-bar-fill" style="width:{min(pct,100)}%;background:{color};"></div></div>
+                <div style="text-align:right; font-size:0.72rem; color:var(--text-lo); margin-top:4px;">{p['total_logged_hrs_week']:.0f} / {p['capacity_hrs_week']:.0f} Hrs (combined)</div>
+            </div>
+            """, unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════
 # BUDGET

@@ -1,24 +1,13 @@
 from db.session import init_db
-from db.repository import (
-    create_project, get_or_create_person, assign_person_to_project,
-    get_project_team_v2, get_all_people
-)
+from db.repository import create_project, add_team_member, get_team_members
 
 init_db()
 
-# Create two projects
-pid_a = create_project("Project A - Test")
-pid_b = create_project("Project B - Test")
+pid1 = create_project("Clean Test A")
+pid2 = create_project("Clean Test B")
 
-# Create Sana once, globally
-sana_id = get_or_create_person("Sana", capacity_hrs_week=40, skills=["DevOps", "Cloud"])
+add_team_member(pid1, "Fresh Person", 40, 30, ["Testing"])
+add_team_member(pid2, "Fresh Person", 40, 20, ["Testing"])
 
-# Assign her to Project A with heavy hours (overloaded there)
-assign_person_to_project(sana_id, pid_a, logged_hrs_week=35)
-
-# Assign her to Project B too, with more hours
-assign_person_to_project(sana_id, pid_b, logged_hrs_week=15)
-
-print("Project A team:", get_project_team_v2(pid_a))
-print("\nProject B team:", get_project_team_v2(pid_b))
-print("\nAll people (global view):", get_all_people())
+print("Project A:", get_team_members(pid1))
+print("Project B:", get_team_members(pid2))
