@@ -109,6 +109,8 @@ def recommend_assignee(
 
     best = min(pool, key=lambda c: c.utilization_pct)
     overloaded = best.utilization_pct >= FULL_CAPACITY_THRESHOLD
+    best_dict = next((c for c in candidates if c.get("name") == best.name), {})
+    on_project = best_dict.get("on_project", True)
 
     if required_skill:
         skill_note = "with matching skill" if skill_match else "no exact skill match found, showing most available overall"
@@ -116,6 +118,8 @@ def recommend_assignee(
         skill_note = "no specific skill required"
 
     message = f"Recommend {best.name} (currently {best.utilization_pct}% utilized, {skill_note})"
+    if not on_project:
+        message += " — not currently on this project; would need to be added."
     if overloaded:
         message += " — WARNING: at or over full capacity; no one in the pool has spare bandwidth."
         logger.warning("Best available candidate %s is overloaded at %s%%", best.name, best.utilization_pct)

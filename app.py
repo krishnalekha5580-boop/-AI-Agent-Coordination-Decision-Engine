@@ -1754,26 +1754,78 @@ if not active_id:
             new_end = st.date_input("End date")
             use_ai_planning = st.checkbox("🤖 Auto-generate tasks and team assignments from this description", value=True)
 
+            # if st.form_submit_button("Create Project", type="primary"):
+            #     if new_name.strip():
+            #         from db.repository import create_project_with_description, copy_default_team_to_project, save_generated_tasks
+            #         from db.default_team import DEFAULT_TEAM
+
+            #         pid = create_project_with_description(new_name.strip(), new_description.strip(), str(new_start), str(new_end))
+
+            #         if use_ai_planning and new_description.strip():
+            #             from agents.planning_agent import generate_task_breakdown
+            #             with st.spinner("AI is breaking down your project into tasks..."):
+            #                 generated = generate_task_breakdown(new_description.strip(), DEFAULT_TEAM)
+            #                 if generated:
+            #                     assigned_names = {t.get("assigned_to") for t in generated if t.get("assigned_to")}
+            #                     relevant_team = [m for m in DEFAULT_TEAM if m["name"] in assigned_names]
+            #                     copy_default_team_to_project(pid, relevant_team)
+            #                     save_generated_tasks(pid, generated, default_deadline=str(new_end))
+            #                     st.success(f"Created project and generated {len(generated)} tasks, assigned to {len(relevant_team)} team member(s)")
+            #                 else:
+            #                     st.warning("Project created, but AI task generation didn't return valid results. You can add tasks manually.")
+            #         # else: no AI planning - project starts with an empty team, added manually
+
+            #         st.session_state["active_project_id"] = pid
+            #         st.session_state["active_project_name"] = new_name.strip()
+            #         st.rerun()
+            #     else:
+            #         st.error("Enter a project name")
             if st.form_submit_button("Create Project", type="primary"):
                 if new_name.strip():
-                    from db.repository import create_project_with_description, copy_default_team_to_project, save_generated_tasks
+                    from db.repository import create_project_with_description, add_team_member, save_generated_tasks, get_all_people
                     from db.default_team import DEFAULT_TEAM
 
                     pid = create_project_with_description(new_name.strip(), new_description.strip(), str(new_start), str(new_end))
 
                     if use_ai_planning and new_description.strip():
                         from agents.planning_agent import generate_task_breakdown
-                        with st.spinner("AI is breaking down your project into tasks..."):
+                        with st.spinner("AI is breaking down your project and checking real team availability..."):
                             generated = generate_task_breakdown(new_description.strip(), DEFAULT_TEAM)
                             if generated:
+                                # For each generated task, verify the assignee isn't already overloaded globally.
+                                # If they are, automatically swap to another team member with the same skill who has capacity.
+                                global_people = {p["name"]: p for p in get_all_people()}
+
+                                for t in generated:
+                                    skill = t.get("required_skill")
+                                    assignee = t.get("assigned_to")
+
+                                    candidates_with_skill = [m for m in DEFAULT_TEAM if skill in m.get("skills", [])]
+
+                                    def is_overloaded(name):
+                                        existing = global_people.get(name)
+                                        return existing and existing["overall_utilization_pct"] >= 100
+
+                                    if assignee and is_overloaded(assignee):
+                                        alternative = next((c["name"] for c in candidates_with_skill
+                                                            if c["name"] != assignee and not is_overloaded(c["name"])), None)
+                                        if alternative:
+                                            t["assigned_to"] = alternative
+                                            t["reassignment_note"] = f"Auto-reassigned from {assignee} (already overloaded across other projects)"
+
                                 assigned_names = {t.get("assigned_to") for t in generated if t.get("assigned_to")}
-                                relevant_team = [m for m in DEFAULT_TEAM if m["name"] in assigned_names]
-                                copy_default_team_to_project(pid, relevant_team)
+                                for name in assigned_names:
+                                    default_info = next((m for m in DEFAULT_TEAM if m["name"] == name), {"capacity_hrs_week": 40, "skills": []})
+                                    add_team_member(pid, name, default_info["capacity_hrs_week"], 20, default_info.get("skills", []))
+
                                 save_generated_tasks(pid, generated, default_deadline=str(new_end))
-                                st.success(f"Created project and generated {len(generated)} tasks, assigned to {len(relevant_team)} team member(s)")
+
+                                reassignment_notes = [t["reassignment_note"] for t in generated if t.get("reassignment_note")]
+                                st.success(f"Created project and generated {len(generated)} tasks, assigned to {len(assigned_names)} team member(s)")
+                                for note in reassignment_notes:
+                                    st.info(f"🔄 {note}")
                             else:
                                 st.warning("Project created, but AI task generation didn't return valid results. You can add tasks manually.")
-                    # else: no AI planning - project starts with an empty team, added manually
 
                     st.session_state["active_project_id"] = pid
                     st.session_state["active_project_name"] = new_name.strip()
@@ -1781,6 +1833,7 @@ if not active_id:
                 else:
                     st.error("Enter a project name")
     st.stop()
+
 
 
 
@@ -2361,12 +2414,12 @@ elif page == "Team":
                             with s1:
                                 if st.form_submit_button("Save Changes"):
                                     skills_list = [s.strip() for s in new_skills.split(",") if s.strip()]
-                                    update_team_member(member["db_id"], new_name, new_capacity, new_logged, skills_list)
+                                    update_team_member(member["db_id"], new_name, new_capacity, new_logged, skills_list, active_id)
                                     st.session_state[f"edit_member_{member['db_id']}"] = False
                                     st.rerun()
                             with s2:
                                 if st.form_submit_button("Delete Member", type="secondary"):
-                                    delete_team_member(member["db_id"])
+                                    delete_team_member(member["db_id"], active_id)
                                     st.rerun()
 # ══════════════════════════════════════════════════════════════
 # GLOBAL TEAM

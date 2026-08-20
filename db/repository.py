@@ -250,11 +250,16 @@ def update_project_dates(project_id: int, start_date: str, end_date: str):
         session.close()
 
 def delete_project(project_id: int):
-    """Delete a project and all its related data (tasks, team, budget, findings) via cascade."""
+    """Delete a project and all its related data (tasks, team assignments, budget, findings)."""
     session = get_session()
     try:
         project = session.query(Project).filter_by(id=project_id).first()
         if project:
+            session.query(ProjectAssignment).filter_by(project_id=project_id).delete()
+            session.query(Task).filter_by(project_id=project_id).delete()
+            session.query(BudgetEntry).filter_by(project_id=project_id).delete()
+            session.query(Finding).filter_by(project_id=project_id).delete()
+
             session.delete(project)
             session.commit()
             return True
@@ -712,3 +717,18 @@ def bulk_add_team_members(project_id: int, members: List[Dict[str, Any]]) -> int
         )
         count += 1
     return count
+
+def delete_person(person_id: int) -> bool:
+    """Permanently remove a person from the global roster, and any project assignments they have."""
+    session = get_session()
+    try:
+        person = session.query(Person).filter_by(id=person_id).first()
+        if not person:
+            return False
+
+        session.query(ProjectAssignment).filter_by(person_id=person_id).delete()
+        session.delete(person)
+        session.commit()
+        return True
+    finally:
+        session.close()

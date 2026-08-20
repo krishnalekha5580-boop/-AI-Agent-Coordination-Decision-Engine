@@ -6,8 +6,8 @@ from langchain_groq import ChatGroq
 from tools.planning_tools import format_team_for_matching
 from prompts.planning_prompt import PLANNING_SYSTEM_PROMPT
 
-model = ChatGroq(model="llama-3.3-70b-versatile", temperature=0.3)
-
+# model = ChatGroq(model="llama-3.3-70b-versatile", temperature=0.3)
+model = ChatGroq(model="openai/gpt-oss-120b", temperature=0.3)
 def generate_task_breakdown(description: str, team: list) -> list:
     """Given a project description and team, return a list of proposed tasks with assignments."""
     team_str = format_team_for_matching(team)

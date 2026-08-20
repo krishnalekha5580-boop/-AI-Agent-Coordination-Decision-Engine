@@ -263,9 +263,44 @@ def run_budget_agent(project_data, project_id):
     findings.append(finding_record)
     return findings
 
+# def get_reassignment_suggestion(project_data, exclude_person=None, required_skill=None):
+#     """Ask the Task Allocation agent who should take over a task, excluding the overloaded person."""
+#     candidates = []
+#     for member in project_data.get("team", []):
+#         if member["name"] == exclude_person:
+#             continue
+#         pct = (member["logged_hrs_week"] / member["capacity_hrs_week"]) * 100
+#         candidates.append({
+#             "name": member["name"],
+#             "utilization_pct": round(pct),
+#             "skills": member.get("skills", [])
+#         })
+
+#     if not candidates:
+#         return "No alternative team member available"
+
+#     use_mock = os.getenv("USE_MOCK_AGENT", "0") == "1"
+#     if use_mock:
+#         response = make_mock_allocation_response(candidates, required_skill=required_skill)
+#     else:
+#         skill_note = f" The task requires the skill: {required_skill}." if required_skill else ""
+#         prompt = f"Candidates: {json_lib.dumps(candidates)}.{skill_note} Who should take this task?"
+#         from agents.task_allocation import allocation_agent
+#         response = allocation_agent.invoke({"messages": [{"role": "user", "content": prompt}]})
+
+#     for m in response["messages"]:
+#         if isinstance(m, ToolMessage) and m.name == "recommend_assignee":
+#             return m.content
+#     return "Could not determine a recommendation"
+
 def get_reassignment_suggestion(project_data, exclude_person=None, required_skill=None):
     """Ask the Task Allocation agent who should take over a task, excluding the overloaded person."""
+    from db.repository import get_all_people
+
     candidates = []
+    seen_names = set()
+
+    # First: people already on this project's team
     for member in project_data.get("team", []):
         if member["name"] == exclude_person:
             continue
@@ -273,7 +308,20 @@ def get_reassignment_suggestion(project_data, exclude_person=None, required_skil
         candidates.append({
             "name": member["name"],
             "utilization_pct": round(pct),
-            "skills": member.get("skills", [])
+            "skills": member.get("skills", []),
+            "on_project": True
+        })
+        seen_names.add(member["name"])
+
+    # Then: global roster people not yet on this project
+    for person in get_all_people():
+        if person["name"] == exclude_person or person["name"] in seen_names:
+            continue
+        candidates.append({
+            "name": person["name"],
+            "utilization_pct": round(person["overall_utilization_pct"]),
+            "skills": person.get("skills", []),
+            "on_project": False
         })
 
     if not candidates:
@@ -284,7 +332,8 @@ def get_reassignment_suggestion(project_data, exclude_person=None, required_skil
         response = make_mock_allocation_response(candidates, required_skill=required_skill)
     else:
         skill_note = f" The task requires the skill: {required_skill}." if required_skill else ""
-        prompt = f"Candidates: {json_lib.dumps(candidates)}.{skill_note} Who should take this task?"
+        pool_note = " Some candidates are already on this project ('on_project': true); others are from the wider company roster and would need to be added to this project first ('on_project': false) - mention this distinction in your answer."
+        prompt = f"Candidates: {json_lib.dumps(candidates)}.{skill_note}{pool_note} Who should take this task?"
         from agents.task_allocation import allocation_agent
         response = allocation_agent.invoke({"messages": [{"role": "user", "content": prompt}]})
 
